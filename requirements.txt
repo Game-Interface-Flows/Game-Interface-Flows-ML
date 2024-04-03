@@ -1,2 +1,12 @@
-fastapi~=0.95.0
-starlette~=0.26.1
+fastapi~=0.110.0
+starlette~=0.36.3
+black~=24.3.0
+python-dotenv~=1.0.1
+black[jupyter]~=24.3.0
+isort~=5.13.2
+python-multipart~=0.0.9
+torch~=2.2.1
+torchvision~=0.17.1
+lightning~=2.2.1
+scikit-image~=0.22.0
+numpy
