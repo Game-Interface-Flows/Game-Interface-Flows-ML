@@ -1,9 +1,8 @@
 from pydantic import BaseModel
 
 
-class Prediction(BaseModel):
+class PredictedScreen(BaseModel):
     index: int
-    prediction: int
     time_in: int
     time_out: int
 
