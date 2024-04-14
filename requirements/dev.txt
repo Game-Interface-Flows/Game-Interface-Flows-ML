@@ -2,3 +2,4 @@
 isort~=5.13.2
 black~=24.3.0
 black[jupyter]~=24.3.0
+albumentations~=1.4.3

@@ -1,4 +1,7 @@
+import albumentations as A
 import pytorch_lightning as pl
+from albumentation_transforms import AlbumentationTransforms
+from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
@@ -12,6 +15,7 @@ class DataModule(pl.LightningDataModule):
         train_test_ratio: float = 0.7,
         train_val_ratio: float = 0.2,
     ):
+
         super().__init__()
         self.data_path = data_path
         self.batch_size = batch_size
@@ -19,14 +23,14 @@ class DataModule(pl.LightningDataModule):
         self.train_test_ratio = train_test_ratio
         self.train_val_ratio = train_val_ratio
 
-        self.transform = transforms.Compose(
-            [
-                transforms.Resize((256, 256)),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
+        self.transform = AlbumentationTransforms(
+            A.Compose(
+                [
+                    A.Resize(width=256, height=256),
+                    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                    ToTensorV2(),
+                ]
+            )
         )
 
     def setup(self, stage: str) -> None:
