@@ -9,7 +9,7 @@ pretty:
 	isort .
 
 tensorboard:
-	tensorboard --logdir=tb_logs
+	tensorboard --logdir=model/tb_logs
 
 docker_build:
 	docker image build -t game-interface-flows-ml .
