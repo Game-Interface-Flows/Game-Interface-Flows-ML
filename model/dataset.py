@@ -3,7 +3,7 @@ import pytorch_lightning as pl
 from albumentation_transforms import AlbumentationTransforms
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import DataLoader, random_split
-from torchvision import datasets, transforms
+from torchvision import datasets
 
 
 class DataModule(pl.LightningDataModule):
@@ -27,22 +27,24 @@ class DataModule(pl.LightningDataModule):
             A.Compose(
                 [
                     A.Resize(width=256, height=256),
-                    A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+                    A.ToGray(always_apply=True),
+                    A.Normalize(mean=[0.485], std=[0.229]),
                     ToTensorV2(),
                 ]
             )
         )
 
     def setup(self, stage: str) -> None:
-        dataset = datasets.ImageFolder(self.data_path, transform=self.transform)
+        if stage == "fit" or stage is None:
+            dataset = datasets.ImageFolder(self.data_path, transform=self.transform)
 
-        train_size = int(self.train_test_ratio * len(dataset))
-        val_size = int(self.train_val_ratio * train_size)
-        test_size = len(dataset) - train_size - val_size
+            train_size = int(self.train_test_ratio * len(dataset))
+            val_size = int(self.train_val_ratio * train_size)
+            test_size = len(dataset) - train_size - val_size
 
-        self.train_dataset, self.val_dataset, self.test_dataset = random_split(
-            dataset, [train_size, val_size, test_size]
-        )
+            self.train_dataset, self.val_dataset, self.test_dataset = random_split(
+                dataset, [train_size, val_size, test_size]
+            )
 
     def _get_data_loader(self, dataset, shuffle: bool = False):
         return DataLoader(

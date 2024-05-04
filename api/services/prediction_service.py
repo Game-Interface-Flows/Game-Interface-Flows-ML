@@ -3,13 +3,25 @@ import io
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
+import albumentations as A
 import cv2
 import numpy as np
 import torch
-import torchvision.transforms as transforms
+import torch.nn as nn
+import torch.nn.functional as F
+from albumentations.pytorch import ToTensorV2
 from fastapi import UploadFile
 from PIL import Image
+from torchvision import models
 from tqdm import tqdm
+
+
+class AlbumentationTransforms:
+    def __init__(self, transforms):
+        self.transforms = transforms
+
+    def __call__(self, img, *args, **kwargs):
+        return self.transforms(image=np.array(img))["image"]
 
 
 class Screen:
@@ -24,11 +36,23 @@ class TimedScreen:
         self.time = time
 
 
+def create_model(num_classes=2):
+    model = models.resnet18(weights=None)
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, num_classes)
+    return model
+
+
 class PredictionService:
     def __init__(
-        self, model_path: str, screen_prob_threshold: float, screen_sim_threshold: float
+        self, model_weights: str, screen_prob_threshold: float, screen_sim_threshold: float
     ):
-        self.model = torch.jit.load(model_path)
+        self.model = create_model(num_classes=2)
+        state_dict = torch.load(model_weights)
+        adjusted_state_dict = {
+            key.replace("model.", ""): value for key, value in state_dict.items()
+        }
+        self.model.load_state_dict(adjusted_state_dict)
         self.model.eval()
         self.screen_prob_threshold = screen_prob_threshold
         self.screen_sim_threshold = screen_sim_threshold
@@ -47,18 +71,20 @@ class PredictionService:
 
     @staticmethod
     def _preprocess_image(image_bytes: bytes) -> Image:
-        image = Image.open(io.BytesIO(image_bytes))
-        transform = transforms.Compose(
+        transform = A.Compose(
             [
-                transforms.Resize((256, 256)),
-                transforms.ToTensor(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
+                A.Resize(width=256, height=256),
+                A.ToGray(always_apply=True),
+                A.Normalize(mean=[0.485], std=[0.229]),
+                ToTensorV2(),
             ]
         )
-
-        return transform(image).unsqueeze(0)
+        image = Image.open(io.BytesIO(image_bytes))
+        image = image.convert("RGB")
+        image_np = np.array(image)
+        transformed = transform(image=image_np)["image"]
+        transformed = transformed.unsqueeze(0)
+        return transformed
 
     async def _process_image(self, image, executor: ThreadPoolExecutor):
         bytes = await image.read()
@@ -95,8 +121,9 @@ class PredictionService:
             # if image does not exist, we should create a screen
             if curr_screen is None:
                 with torch.no_grad():
-                    prob = self.model(model_image).item()
-                    pred = prob > self.screen_prob_threshold
+                    outputs = self.model(model_image)
+                    _, predicted = torch.max(outputs, 1)
+                    pred = predicted.item()
                 if pred == 0:
                     continue
                 curr_screen = Screen(curr_index, sim_image)
@@ -111,9 +138,9 @@ class PredictionService:
         return times_screens
 
 
-MODEL_PATH = "api/model.pt"
+MODEL_WEIGHTS = "api/services/resnet18_weights.pth"
 CLASS_PROB_TRESHOLD = 0.5
 IMG_SIM_TRESHOLD = 0.85
 prediction_service = PredictionService(
-    MODEL_PATH, CLASS_PROB_TRESHOLD, IMG_SIM_TRESHOLD
+    MODEL_WEIGHTS, CLASS_PROB_TRESHOLD, IMG_SIM_TRESHOLD
 )
