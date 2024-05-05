@@ -7,21 +7,13 @@ import albumentations as A
 import cv2
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from albumentations.pytorch import ToTensorV2
 from fastapi import UploadFile
 from PIL import Image
-from torchvision import models
 from tqdm import tqdm
 
-
-class AlbumentationTransforms:
-    def __init__(self, transforms):
-        self.transforms = transforms
-
-    def __call__(self, img, *args, **kwargs):
-        return self.transforms(image=np.array(img))["image"]
+from api.utils.load_model import load_model
 
 
 class Screen:
@@ -36,23 +28,14 @@ class TimedScreen:
         self.time = time
 
 
-def create_model(num_classes=2):
-    model = models.resnet18(weights=None)
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, num_classes)
-    return model
-
-
 class PredictionService:
     def __init__(
-        self, model_weights: str, screen_prob_threshold: float, screen_sim_threshold: float
+        self,
+        model_weights: str,
+        screen_prob_threshold: float,
+        screen_sim_threshold: float,
     ):
-        self.model = create_model(num_classes=2)
-        state_dict = torch.load(model_weights)
-        adjusted_state_dict = {
-            key.replace("model.", ""): value for key, value in state_dict.items()
-        }
-        self.model.load_state_dict(adjusted_state_dict)
+        self.model = load_model(num_classes=2, model_weights=model_weights)
         self.model.eval()
         self.screen_prob_threshold = screen_prob_threshold
         self.screen_sim_threshold = screen_sim_threshold
@@ -121,9 +104,11 @@ class PredictionService:
             # if image does not exist, we should create a screen
             if curr_screen is None:
                 with torch.no_grad():
-                    outputs = self.model(model_image)
-                    _, predicted = torch.max(outputs, 1)
-                    pred = predicted.item()
+                    logits = self.model(model_image)
+                    probabilities = F.softmax(logits, dim=1)
+                    probability = (probabilities[0, 1]).item()
+                    pred = probability > self.screen_prob_threshold
+                    print(probability)
                 if pred == 0:
                     continue
                 curr_screen = Screen(curr_index, sim_image)
@@ -139,7 +124,7 @@ class PredictionService:
 
 
 MODEL_WEIGHTS = "api/services/resnet18_weights.pth"
-CLASS_PROB_TRESHOLD = 0.5
+CLASS_PROB_TRESHOLD = 0.9
 IMG_SIM_TRESHOLD = 0.85
 prediction_service = PredictionService(
     MODEL_WEIGHTS, CLASS_PROB_TRESHOLD, IMG_SIM_TRESHOLD
