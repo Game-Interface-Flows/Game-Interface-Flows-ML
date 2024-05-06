@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI
 
 from api.schema import *
 from api.services.prediction_service import prediction_service
@@ -15,11 +15,9 @@ def get_health() -> CustomStatus:
 
 
 @app.post("/flow")
-async def get_screens(
-    images: List[UploadFile] = File(...), images_interval: int = 1
-) -> List[PredictedScreen]:
+async def get_screens(flow_data: FlowData) -> List[PredictedScreen]:
     """Get screens with time intervals from images."""
-    timed_screens = await prediction_service.get_screens_flow(images)
+    timed_screens = await prediction_service.get_screens_flow(flow_data.encoded_images)
     predicted_screens = []
 
     for screen in timed_screens:
@@ -27,12 +25,12 @@ async def get_screens(
             len(predicted_screens) > 0
             and predicted_screens[-1].index == screen.image_index
         ):
-            predicted_screens[-1].time_out += images_interval
+            predicted_screens[-1].time_out += flow_data.images_interval
             continue
 
         screen = PredictedScreen(
             time_in=screen.time,
-            time_out=screen.time + images_interval,
+            time_out=screen.time + flow_data.images_interval,
             index=screen.image_index,
         )
         predicted_screens.append(screen)

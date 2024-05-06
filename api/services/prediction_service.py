@@ -1,5 +1,5 @@
 import asyncio
-import io
+import base64
 from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
@@ -9,8 +9,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from albumentations.pytorch import ToTensorV2
-from fastapi import UploadFile
-from PIL import Image
 from tqdm import tqdm
 
 from api.utils.load_model import load_model
@@ -41,10 +39,16 @@ class PredictionService:
         self.screen_sim_threshold = screen_sim_threshold
 
     @staticmethod
-    def _get_image_hist(image_bytes: bytes) -> np.ndarray:
-        image_array = np.frombuffer(image_bytes, dtype=np.uint8)
-        image = cv2.imdecode(image_array, cv2.IMREAD_GRAYSCALE)
-        hist = cv2.calcHist([image], [0], None, [512], [0, 512])
+    def base64_to_numpy(base64_string: str) -> np.array:
+        img_data = base64.b64decode(base64_string)
+        img_array = np.frombuffer(img_data, np.uint8)
+        img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
+        return img
+
+    @staticmethod
+    def _get_image_hist(image_np: np.ndarray) -> np.ndarray:
+        gray_image = cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY)
+        hist = cv2.calcHist([gray_image], [0], None, [256], [0, 256])
         return hist
 
     @staticmethod
@@ -53,7 +57,7 @@ class PredictionService:
         return score
 
     @staticmethod
-    def _preprocess_image(image_bytes: bytes) -> Image:
+    def _preprocess_image(image_np: np.array) -> torch.Tensor:
         transform = A.Compose(
             [
                 A.Resize(width=256, height=256),
@@ -62,32 +66,31 @@ class PredictionService:
                 ToTensorV2(),
             ]
         )
-        image = Image.open(io.BytesIO(image_bytes))
-        image = image.convert("RGB")
-        image_np = np.array(image)
         transformed = transform(image=image_np)["image"]
         transformed = transformed.unsqueeze(0)
         return transformed
 
-    async def _process_image(self, image, executor: ThreadPoolExecutor):
-        bytes = await image.read()
+    async def _process_image(self, image_np: np.array, executor: ThreadPoolExecutor):
         loop = asyncio.get_event_loop()
         model_image = await loop.run_in_executor(
-            executor, self._preprocess_image, bytes
+            executor, self._preprocess_image, image_np
         )
-        image_hist = await loop.run_in_executor(executor, self._get_image_hist, bytes)
+        image_hist = await loop.run_in_executor(
+            executor, self._get_image_hist, image_np
+        )
         return model_image, image_hist
 
-    async def _get_processed_images(self, images: List[UploadFile]):
+    async def _get_processed_images(self, images: List[np.array]):
         with ThreadPoolExecutor() as executor:
             tasks = [self._process_image(image, executor) for image in images]
             processed_images = await asyncio.gather(*tasks)
         return processed_images
 
     async def get_screens_flow(
-        self, images: List[UploadFile], images_interval: int = 1
+        self, encoded_images: List[str], images_interval: int = 1
     ) -> List[TimedScreen]:
-        processed_images = await self._get_processed_images(images)
+        decoded_images = [self.base64_to_numpy(encoded) for encoded in encoded_images]
+        processed_images = await self._get_processed_images(decoded_images)
         screens = set()
         times_screens = []
         progress_bar = tqdm(total=len(processed_images))
@@ -108,7 +111,6 @@ class PredictionService:
                     probabilities = F.softmax(logits, dim=1)
                     probability = (probabilities[0, 1]).item()
                     pred = probability > self.screen_prob_threshold
-                    print(probability)
                 if pred == 0:
                     continue
                 curr_screen = Screen(curr_index, sim_image)
