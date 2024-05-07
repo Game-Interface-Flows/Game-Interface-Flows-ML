@@ -1,7 +1,5 @@
 FROM python:3.11-slim-buster
 
-RUN apt-get install -y libgl1
-
 COPY requirements/ /app/requirements/
 
 RUN pip install --no-cache-dir -r /app/requirements/prod.txt
