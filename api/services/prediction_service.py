@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from albumentations.pytorch import ToTensorV2
-from tqdm import tqdm
 
 from api.utils.load_model import load_model
 
@@ -93,9 +92,7 @@ class PredictionService:
         processed_images = await self._get_processed_images(decoded_images)
         screens = set()
         times_screens = []
-        progress_bar = tqdm(total=len(processed_images))
         for curr_index, (model_image, sim_image) in enumerate(processed_images):
-            progress_bar.update(1)
             # check if screen is already stored
             curr_screen = None
             for screen in screens:
@@ -121,7 +118,6 @@ class PredictionService:
             )
             times_screens.append(timed_screen)
 
-        progress_bar.close()
         return times_screens
 
 
