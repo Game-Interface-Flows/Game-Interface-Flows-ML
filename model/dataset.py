@@ -27,7 +27,10 @@ class DataModule(pl.LightningDataModule):
             A.Compose(
                 [
                     A.Resize(width=256, height=256),
+                    A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, always_apply=True),
                     A.ToGray(always_apply=True),
+                    A.HorizontalFlip(p=0.5),
+                    A.VerticalFlip(p=0.5),
                     A.Normalize(mean=[0.485], std=[0.229]),
                     ToTensorV2(),
                 ]

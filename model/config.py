@@ -9,7 +9,7 @@ TRAIN_VAL_RATIO = 0.9
 
 # Hyperparametres
 MIN_EPOCHS = 1
-MAX_EPOCHS = 5
+MAX_EPOCHS = 10
 LEARNING_RATE = 0.001
 
 # Compute related
