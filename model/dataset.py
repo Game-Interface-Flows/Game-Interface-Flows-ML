@@ -12,8 +12,8 @@ class DataModule(pl.LightningDataModule):
         data_path: str,
         batch_size: int,
         num_workers: int,
-        train_test_ratio: float = 0.7,
-        train_val_ratio: float = 0.2,
+        train_test_ratio: float = 0.8,
+        train_val_ratio: float = 0.8,
     ):
 
         super().__init__()
@@ -37,11 +37,13 @@ class DataModule(pl.LightningDataModule):
     def setup(self, stage: str) -> None:
         if stage == "fit" or stage is None:
             dataset = datasets.ImageFolder(self.data_path, transform=self.transform)
-
+            # split dataset to train and test
             train_size = int(self.train_test_ratio * len(dataset))
-            val_size = int(self.train_val_ratio * train_size)
-            test_size = len(dataset) - train_size - val_size
-
+            test_size = len(dataset) - train_size 
+            # split train to train and val
+            val_size = int((1 - self.train_val_ratio) * train_size)
+            train_size = train_size - val_size
+            
             self.train_dataset, self.val_dataset, self.test_dataset = random_split(
                 dataset, [train_size, val_size, test_size]
             )
