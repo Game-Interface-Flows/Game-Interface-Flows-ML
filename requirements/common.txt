@@ -7,3 +7,4 @@ torchvision~=0.17.1
 numpy~=1.26.4
 uvicorn~=0.29.0
 albumentations~=1.4.3
+scikit-image~=0.22.0

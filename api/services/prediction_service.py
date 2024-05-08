@@ -9,14 +9,16 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from albumentations.pytorch import ToTensorV2
+from skimage.metrics import structural_similarity as ssim
+from skimage.transform import resize
 
 from api.utils.load_model import load_model
 
 
 class Screen:
-    def __init__(self, image_index: int, similarty):
+    def __init__(self, image_index: int, similarity):
         self.image_index = image_index
-        self.similarty = similarty
+        self.similarity = similarity
 
 
 class TimedScreen:
@@ -43,20 +45,15 @@ class PredictionService:
         img_array = np.frombuffer(img_data, np.uint8)
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
         return img
+    
+    @staticmethod
+    def _preprocess_image_for_ssim(image_np: np.ndarray):
+        image = cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY)
+        image = resize(image, (256, 256), anti_aliasing=True)
+        return image
 
     @staticmethod
-    def _get_image_hist(image_np: np.ndarray) -> np.ndarray:
-        gray_image = cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY)
-        hist = cv2.calcHist([gray_image], [0], None, [256], [0, 256])
-        return hist
-
-    @staticmethod
-    def _score_image_similarity(hist1: np.ndarray, hist2: np.ndarray) -> float:
-        score = cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)
-        return score
-
-    @staticmethod
-    def _preprocess_image(image_np: np.array) -> torch.Tensor:
+    def _preprocess_image_for_model(image_np: np.array) -> torch.Tensor:
         transform = A.Compose(
             [
                 A.Resize(width=256, height=256),
@@ -69,19 +66,19 @@ class PredictionService:
         transformed = transformed.unsqueeze(0)
         return transformed
 
-    async def _process_image(self, image_np: np.array, executor: ThreadPoolExecutor):
+    async def _preprocess_image(self, image_np: np.array, executor: ThreadPoolExecutor):
         loop = asyncio.get_event_loop()
         model_image = await loop.run_in_executor(
-            executor, self._preprocess_image, image_np
+            executor, self._preprocess_image_for_model, image_np
         )
-        image_hist = await loop.run_in_executor(
-            executor, self._get_image_hist, image_np
+        ssim_image = await loop.run_in_executor(
+            executor, self._preprocess_image_for_ssim, image_np
         )
-        return model_image, image_hist
+        return model_image, ssim_image
 
     async def _get_processed_images(self, images: List[np.array]):
         with ThreadPoolExecutor() as executor:
-            tasks = [self._process_image(image, executor) for image in images]
+            tasks = [self._preprocess_image(image, executor) for image in images]
             processed_images = await asyncio.gather(*tasks)
         return processed_images
 
@@ -92,11 +89,11 @@ class PredictionService:
         processed_images = await self._get_processed_images(decoded_images)
         screens = set()
         timed_screens = []
-        for curr_index, (model_image, sim_image) in enumerate(processed_images):
+        for curr_index, (model_image, ssim_image) in enumerate(processed_images):
             # check if screen is already stored
             curr_screen = None
             for screen in screens:
-                sim = self._score_image_similarity(sim_image, screen.similarty)
+                sim = ssim(ssim_image, screen.similarity, data_range=1.0)
                 if sim > self.screen_sim_threshold:
                     curr_screen = screen
                     break
@@ -110,7 +107,7 @@ class PredictionService:
                     pred = probability > self.screen_prob_threshold
                 if pred == 0:
                     continue
-                curr_screen = Screen(curr_index, sim_image)
+                curr_screen = Screen(curr_index, ssim_image)
                 screens.add(curr_screen)
 
             timed_screen = TimedScreen(
@@ -119,15 +116,12 @@ class PredictionService:
             )
             timed_screens.append(timed_screen)
 
-        for screen in timed_screens:
-            print(screen.image_index)
-
         return timed_screens
 
 
 MODEL_WEIGHTS = "api/services/resnet18_weights.pth"
-CLASS_PROB_TRESHOLD = 0.9
-IMG_SIM_TRESHOLD = 0.85
+CLASS_PROB_TRESHOLD = 0.95
+IMG_SIM_TRESHOLD = 0.5
 prediction_service = PredictionService(
     MODEL_WEIGHTS, screen_prob_threshold=CLASS_PROB_TRESHOLD, screen_sim_threshold=IMG_SIM_TRESHOLD
 )
