@@ -86,12 +86,12 @@ class PredictionService:
         return processed_images
 
     async def get_screens_flow(
-        self, encoded_images: List[str], images_interval: int = 1
+        self, encoded_images: List[str], images_interval: int = 3
     ) -> List[TimedScreen]:
         decoded_images = [self.base64_to_numpy(encoded) for encoded in encoded_images]
         processed_images = await self._get_processed_images(decoded_images)
         screens = set()
-        times_screens = []
+        timed_screens = []
         for curr_index, (model_image, sim_image) in enumerate(processed_images):
             # check if screen is already stored
             curr_screen = None
@@ -114,16 +114,20 @@ class PredictionService:
                 screens.add(curr_screen)
 
             timed_screen = TimedScreen(
-                curr_index * images_interval, curr_screen.image_index
+                time = curr_index * images_interval,
+                image_index = curr_screen.image_index
             )
-            times_screens.append(timed_screen)
+            timed_screens.append(timed_screen)
 
-        return times_screens
+        for screen in timed_screens:
+            print(screen.image_index)
+
+        return timed_screens
 
 
 MODEL_WEIGHTS = "api/services/resnet18_weights.pth"
 CLASS_PROB_TRESHOLD = 0.9
 IMG_SIM_TRESHOLD = 0.85
 prediction_service = PredictionService(
-    MODEL_WEIGHTS, CLASS_PROB_TRESHOLD, IMG_SIM_TRESHOLD
+    MODEL_WEIGHTS, screen_prob_threshold=CLASS_PROB_TRESHOLD, screen_sim_threshold=IMG_SIM_TRESHOLD
 )
