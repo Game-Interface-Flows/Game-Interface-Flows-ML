@@ -166,3 +166,6 @@ cython_debug/
 /model/lightning_logs
 /model/data
 /model/tb_logs
+/model/test
+/model/logs
+/model/weights
