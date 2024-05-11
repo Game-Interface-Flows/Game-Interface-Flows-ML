@@ -9,8 +9,8 @@ TRAIN_VAL_RATIO = 0.9
 
 # Hyperparametres
 MIN_EPOCHS = 1
-MAX_EPOCHS = 10
-LEARNING_RATE = 0.001
+MAX_EPOCHS = 20
+LEARNING_RATE = 0.0001
 
 # Compute related
 ACCELERATOR = "mps"
