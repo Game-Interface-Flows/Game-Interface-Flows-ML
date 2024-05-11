@@ -26,11 +26,14 @@ class DataModule(pl.LightningDataModule):
         self.transform = AlbumentationTransforms(
             A.Compose(
                 [
-                    A.Resize(width=256, height=256),
-                    A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, always_apply=True),
                     A.ToGray(always_apply=True),
+                    A.Resize(width=256, height=256),
+                    A.RandomCrop(width=224, height=244, always_apply=True),
+                    A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
                     A.HorizontalFlip(p=0.5),
                     A.VerticalFlip(p=0.5),
+                    A.RandomGamma(gamma_limit=(80, 120), p=0.5),
+                    A.RandomBrightnessContrast(p=0.5),
                     A.Normalize(mean=[0.485], std=[0.229]),
                     ToTensorV2(),
                 ]
