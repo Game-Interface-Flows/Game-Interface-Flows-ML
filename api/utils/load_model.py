@@ -5,9 +5,9 @@ from torchvision import models
 
 def load_model(num_classes: int = 2, model_weights: str = None):
     # load model architecture
-    model = models.resnet18(weights=None)
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, num_classes)
+    model = models.mobilenet_v2(weights=None)
+    num_ftrs = model.classifier[1].in_features
+    model.classifier[1] = nn.Linear(num_ftrs, num_classes)
     # load state
     state_dict = torch.load(model_weights)
     adjusted_state_dict = {
