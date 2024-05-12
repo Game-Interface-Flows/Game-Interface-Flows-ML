@@ -17,7 +17,10 @@ def get_health() -> CustomStatus:
 @app.post("/flow")
 async def get_screens(flow_data: FlowData) -> List[PredictedScreen]:
     """Get screens with time intervals from images."""
-    timed_screens = await prediction_service.get_screens_flow(flow_data.encoded_images)
+    timed_screens = await prediction_service.get_screens_flow(
+        encoded_images=flow_data.encoded_images,
+        images_interval=flow_data.images_interval,
+    )
     predicted_screens = []
 
     for screen in timed_screens:
@@ -25,7 +28,7 @@ async def get_screens(flow_data: FlowData) -> List[PredictedScreen]:
             len(predicted_screens) > 0
             and predicted_screens[-1].index == screen.image_index
         ):
-            predicted_screens[-1].time_out += flow_data.images_interval
+            predicted_screens[-1].time_out = screen.time + flow_data.images_interval
             continue
 
         screen = PredictedScreen(
