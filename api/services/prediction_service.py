@@ -45,7 +45,7 @@ class PredictionService:
         img_array = np.frombuffer(img_data, np.uint8)
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
         return img
-    
+
     @staticmethod
     def _preprocess_image_for_ssim(image_np: np.ndarray):
         image = cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY)
@@ -111,8 +111,7 @@ class PredictionService:
                 screens.add(curr_screen)
 
             timed_screen = TimedScreen(
-                time = curr_index * images_interval,
-                image_index = curr_screen.image_index
+                time=curr_index * images_interval, image_index=curr_screen.image_index
             )
             timed_screens.append(timed_screen)
 
@@ -123,5 +122,7 @@ MODEL_WEIGHTS = "api/services/mobilenet_weights.pth"
 CLASS_PROB_TRESHOLD = 0.95
 IMG_SIM_TRESHOLD = 0.5
 prediction_service = PredictionService(
-    MODEL_WEIGHTS, screen_prob_threshold=CLASS_PROB_TRESHOLD, screen_sim_threshold=IMG_SIM_TRESHOLD
+    MODEL_WEIGHTS,
+    screen_prob_threshold=CLASS_PROB_TRESHOLD,
+    screen_sim_threshold=IMG_SIM_TRESHOLD,
 )
