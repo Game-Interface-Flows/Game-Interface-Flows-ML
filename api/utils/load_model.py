@@ -10,8 +10,6 @@ def load_model(num_classes: int = 2, model_weights: str = None):
     model.classifier[1] = nn.Linear(num_ftrs, num_classes)
     # load weights
     state_dict = torch.load(model_weights)
-    weights = {
-        key.replace("model.", ""): value for key, value in state_dict.items()
-    }
+    weights = {key.replace("model.", ""): value for key, value in state_dict.items()}
     model.load_state_dict(weights)
     return model

@@ -2,10 +2,11 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchmetrics import Accuracy, Precision
-from torchvision.models import (densenet121, inception_v3, mobilenet_v2, mobilenet_v3_large,
-                                resnet18, resnet50, vgg16, squeezenet1_0)
 from efficientnet_pytorch import EfficientNet
+from torchmetrics import Accuracy, Precision
+from torchvision.models import (densenet121, inception_v3, mobilenet_v2,
+                                mobilenet_v3_large, resnet18, resnet50,
+                                squeezenet1_0, vgg16)
 
 
 class ClassificationModel(pl.LightningModule):
@@ -18,7 +19,7 @@ class ClassificationModel(pl.LightningModule):
 
         # vgg
         # num_features = self.model.classifier[6].in_features
-        # self.model.classifier[6] = nn.Linear(num_features, 2) 
+        # self.model.classifier[6] = nn.Linear(num_features, 2)
 
         # densenet
         # num_ftrs = self.model.classifier.in_features
@@ -31,7 +32,7 @@ class ClassificationModel(pl.LightningModule):
         # mobilenet v2
         # num_ftrs = self.model.classifier[1].in_features
         # self.model.classifier[1] = nn.Linear(num_ftrs, 2)
-        
+
         # mobilenet v3
         # num_ftrs = self.model.classifier[3].in_features
         # self.model.classifier[3] = nn.Linear(num_ftrs, 2)

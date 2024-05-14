@@ -4,13 +4,13 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List
 
 import albumentations as A
+import clip
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
 from albumentations.pytorch import ToTensorV2
-from skimage.metrics import structural_similarity as ssim
-from skimage.transform import resize
+from PIL import Image
 
 from api.utils.load_model import load_model
 
@@ -34,8 +34,13 @@ class PredictionService:
         screen_prob_threshold: float,
         screen_sim_threshold: float,
     ):
+        # load classification model
         self.model = load_model(num_classes=2, model_weights=model_weights)
         self.model.eval()
+        # load sim model
+        self.device = "cpu"
+        self.clip_model, self.preprocess = clip.load("ViT-B/32", device=self.device)
+        # load thresholds
         self.screen_prob_threshold = screen_prob_threshold
         self.screen_sim_threshold = screen_sim_threshold
 
@@ -46,11 +51,12 @@ class PredictionService:
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
         return img
 
-    @staticmethod
-    def _preprocess_image_for_ssim(image_np: np.ndarray):
-        image = cv2.cvtColor(image_np, cv2.COLOR_BGR2GRAY)
-        image = resize(image, (128, 128), anti_aliasing=True)
-        return image
+    def _preprocess_image_for_clip(self, image_np: np.ndarray):
+        image = Image.fromarray(image_np)
+        image = self.preprocess(image).unsqueeze(0).to(self.device)
+        with torch.no_grad():
+            image_features = self.clip_model.encode_image(image)
+        return image_features
 
     @staticmethod
     def _preprocess_image_for_model(image_np: np.array) -> torch.Tensor:
@@ -72,7 +78,7 @@ class PredictionService:
             executor, self._preprocess_image_for_model, image_np
         )
         ssim_image = await loop.run_in_executor(
-            executor, self._preprocess_image_for_ssim, image_np
+            executor, self._preprocess_image_for_clip, image_np
         )
         return model_image, ssim_image
 
@@ -93,7 +99,8 @@ class PredictionService:
             # check if screen is already stored
             curr_screen = None
             for screen in screens:
-                sim = ssim(ssim_image, screen.similarity, data_range=1.0)
+                sim = F.cosine_similarity(ssim_image, screen.similarity)
+                # sim = ssim(ssim_image, screen.similarity, data_range=1.0)
                 if sim > self.screen_sim_threshold:
                     curr_screen = screen
                     break
@@ -120,7 +127,7 @@ class PredictionService:
 
 MODEL_WEIGHTS = "api/utils/mobilenet_weights.pth"
 CLASS_PROB_TRESHOLD = 0.95
-IMG_SIM_TRESHOLD = 0.5
+IMG_SIM_TRESHOLD = 0.9
 prediction_service = PredictionService(
     MODEL_WEIGHTS,
     screen_prob_threshold=CLASS_PROB_TRESHOLD,

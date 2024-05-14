@@ -169,3 +169,4 @@ cython_debug/
 /model/test
 /model/logs
 /model/weights
+/model/temp
