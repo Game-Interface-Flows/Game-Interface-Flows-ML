@@ -6,3 +6,4 @@ lightning~=2.2.1
 tensorflow~=2.16.2
 tensorboard~=2.16.1
 opencv-python~=4.9.0.80
+efficientnet_pytorch~=0.7.1

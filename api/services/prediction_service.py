@@ -118,7 +118,7 @@ class PredictionService:
         return timed_screens
 
 
-MODEL_WEIGHTS = "api/services/mobilenet_weights.pth"
+MODEL_WEIGHTS = "api/utils/mobilenet_weights.pth"
 CLASS_PROB_TRESHOLD = 0.95
 IMG_SIM_TRESHOLD = 0.5
 prediction_service = PredictionService(

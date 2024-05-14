@@ -29,7 +29,9 @@ class DataModule(pl.LightningDataModule):
                     A.ToGray(always_apply=True),
                     A.Resize(width=256, height=256),
                     A.RandomCrop(width=224, height=244, always_apply=True),
-                    A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5),
+                    A.ColorJitter(
+                        brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2, p=0.5
+                    ),
                     A.HorizontalFlip(p=0.5),
                     A.VerticalFlip(p=0.5),
                     A.RandomGamma(gamma_limit=(80, 120), p=0.5),
@@ -45,11 +47,11 @@ class DataModule(pl.LightningDataModule):
             dataset = datasets.ImageFolder(self.data_path, transform=self.transform)
             # split dataset to train and test
             train_size = int(self.train_test_ratio * len(dataset))
-            test_size = len(dataset) - train_size 
+            test_size = len(dataset) - train_size
             # split train to train and val
             val_size = int((1 - self.train_val_ratio) * train_size)
             train_size = train_size - val_size
-            
+
             self.train_dataset, self.val_dataset, self.test_dataset = random_split(
                 dataset, [train_size, val_size, test_size]
             )
